@@ -1,7 +1,5 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
-import cPickle as pickle
 import random
 import keras
 import cv2
@@ -15,15 +13,15 @@ from collections import deque
 DECAY_RATE = 0.99
 BUFFER_SIZE = 40000
 MINIBATCH_SIZE = 64
-NUM_FRAMES = 3000000
+TOT_FRAME = 3000000
 EPSILON_DECAY = 1000000
 MIN_OBSERVATION = 5000
 FINAL_EPSILON = 0.05
 INITIAL_EPSILON = 0.1
-NUM_ACTIONS = 4
+NUM_ACTIONS = 3
 TAU = 0.01
 # Number of frames to throw into network
-NUM_FRAMES = 4
+NUM_FRAMES = 3
 
 class ReplayBuffer:
     """Constructs a buffer object that stores the past moves
@@ -110,7 +108,7 @@ class DeepQ:
     def predict_movement(self, data, epsilon):
         """Predict movement of game controler where is epsilon
         probability randomly move."""
-        q_actions = self.model.predict(data.reshape(1, 210, 160, NUM_FRAMES), batch_size = 1)
+        q_actions = self.model.predict(data.reshape(1, 84, 84, NUM_FRAMES), batch_size = 1)
         opt_policy = np.argmax(q_actions)
         rand_val = np.random.random()
         if rand_val < epsilon:
@@ -161,8 +159,10 @@ class SpaceInvader:
         # A buffer that keeps the last 3 images
         self.process_buffer = []
         # Initialize buffer with the first frame
-        s, r, _, _ = self.env.step(0)
-        self.process_buffer = NUM_FRAMES*[s]
+        s1, r1, _, _ = self.env.step(0)
+        s2, r2, _, _ = self.env.step(0)
+        s3, r3, _, _ = self.env.step(0)
+        self.process_buffer = [s1, s2, s3]
 
     def load_network(self, path):
         self.deep_q.load_network(path)
@@ -170,9 +170,9 @@ class SpaceInvader:
     def convert_process_buffer(self):
         """Converts the list of NUM_FRAMES images in the process buffer
         into one training sample"""
-        black_buffer = map(lambda x: cv2.resize(cv2.cvtColor(x, cv2.COLOR_RGB2GRAY), (84, 110)), self.process_buffer)
-        black_buffer = map(lambda x: x[16:100, :], black_buffer)
-        return np.array(black_buffer).reshape((84, 84, NUM_FRAMES))
+        black_buffer = map(lambda x: cv2.resize(cv2.cvtColor(x, cv2.COLOR_RGB2GRAY), (84, 90)), self.process_buffer)
+        black_buffer = map(lambda x: x[1:85, :, np.newaxis], black_buffer)
+        return np.concatenate(black_buffer, axis=2)
 
     def train(self, num_frames):
         observation_num = 0
@@ -189,8 +189,17 @@ class SpaceInvader:
             if epsilon > FINAL_EPSILON:
                 epsilon -= (INITIAL_EPSILON-FINAL_EPSILON)/EPSILON_DECAY
 
+            initial_state = self.convert_process_buffer()
+            self.process_buffer = []
+
             predict_movement, predict_q_value = self.deep_q.predict_movement(curr_state, epsilon)
-            observation, reward, done, _ = self.env.step(predict_movement)
+
+            reward, done = 0, False
+            for i in xrange(3):
+                temp_observation, temp_reward, temp_done, _ = self.env.step(predict_movement)
+                reward += temp_reward
+                self.process_buffer.append(temp_observation)
+                done = done | temp_done
 
             if observation_num % 10 == 0:
                 print "We predicted a q value of ", predict_q_value
@@ -202,10 +211,6 @@ class SpaceInvader:
                 alive_frame = 0
                 total_reward = 0
 
-            initial_state = self.convert_process_buffer()
-            # Add the new state to our process buffer
-            self.process_buffer.append(observation)
-            self.process_buffer = self.process_buffer[1:]
             new_state = self.convert_process_buffer()
             self.replay_buffer.add(initial_state, predict_movement, reward, done, new_state)
             total_reward += reward
@@ -227,20 +232,24 @@ class SpaceInvader:
         """Simulates game"""
         done = False
         self.env.reset()
+        tot_award = 0
         # self.env.render()
         while not done:
             state = self.convert_process_buffer()
-            self.env.render()
-            predict_movement = self.deep_q.predict_movement(state, 0)[0]
-            print predict_movement
-            observation, reward, done, _ = self.env.step(predict_movement)
-            self.process_buffer.append(observation)
-            self.process_buffer = self.process_buffer[1:]
+            predict_movement = self.deep_q.predict_movement(state, 0.0)[0]
+            self.process_buffer = []
+            for i in xrange(3):
+                self.env.render()
+                observation, reward, done, _ = self.env.step(predict_movement)
+                tot_award += reward
+                self.process_buffer.append(observation)
+        state = self.convert_process_buffer()
+        print tot_award
 
 
 if __name__ == "__main__":
     print "Haven't finished implementing yet...'"
     space_invader = SpaceInvader()
-    # space_invader.load_network("saved.h5")
-    # space_invader.simulate()
-    space_invader.train(NUM_FRAMES)
+    space_invader.load_network("saved.h5")
+    space_invader.simulate()
+    # space_invader.train(TOT_FRAME)
