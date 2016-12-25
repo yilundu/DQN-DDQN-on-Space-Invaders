@@ -236,7 +236,7 @@ class SpaceInvader:
         # self.env.render()
         while not done:
             state = self.convert_process_buffer()
-            predict_movement = self.deep_q.predict_movement(state, 0.0)[0]
+            predict_movement = self.deep_q.predict_movement(state, 0.5)[0]
             self.process_buffer = []
             for i in xrange(3):
                 self.env.render()
