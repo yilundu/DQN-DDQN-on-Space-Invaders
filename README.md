@@ -1,8 +1,14 @@
 # DQN-DDQN-on-Space-Invaders
 Implementation of Double Deep Q Networks and Dueling Q Networks using Keras on Space Invaders using OpenAI Gym. Code can be easily generalized to other Atari games.
 
+## Prerequistes
+You can install all the prerequistes for code use using 
+
+```text
+pip install -r requirements.txt
+```
+
 ## Instructions on Use
----
 Details about the code are covered in the blog [here](https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html)
 
 To run the code use
