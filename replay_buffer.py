@@ -1,3 +1,5 @@
+from collections import deque
+
 class ReplayBuffer:
     """Constructs a buffer object that stores the past moves
     and samples a set of subsamples"""
