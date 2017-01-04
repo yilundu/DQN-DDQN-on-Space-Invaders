@@ -9,7 +9,6 @@ pip install -r requirements.txt
 ```
 
 ## Instructions on Use
----
 Details about the code are covered in the blog [here](https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html)
 
 To run the code use
