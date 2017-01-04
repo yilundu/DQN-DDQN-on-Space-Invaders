@@ -3,23 +3,32 @@ import numpy as np
 import random
 import keras
 import cv2
-from keras.models import load_model, Sequential
+import tensorflow as tf
+sess = tf.session()
+
+from keras.models import load_model, Sequential, Model
 from keras.layers.convolutional import Convolution2D
+from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import Adam
 from keras.layers.core import Activation, Dropout, Flatten, Dense
+from keras.layers import merge, Input
+from keras import backend as K
+K.set_session(sess)
 from collections import deque
 
 # List of hyper-parameters and constants
 DECAY_RATE = 0.99
-BUFFER_SIZE = 40000
-MINIBATCH_SIZE = 64
-TOT_FRAME = 3000000
-EPSILON_DECAY = 1000000
+BUFFER_SIZE = 100000
+MINIBATCH_SIZE = 32
+TOT_FRAME = 1000000
+EPSILON_DECAY = 300000
 MIN_OBSERVATION = 5000
-FINAL_EPSILON = 0.05
-INITIAL_EPSILON = 0.1
+FINAL_EPSILON = 0.1
+INITIAL_EPSILON = 1.0
 NUM_ACTIONS = 6
+SEQUENCE_LENGTH = 100
 TAU = 0.01
+BETA_VALUE = 0.5
 # Number of frames to throw into network
 NUM_FRAMES = 3
 
@@ -69,7 +78,7 @@ class ReplayBuffer:
         self.buffer.clear()
         self.count = 0
 
-class DeepQ:
+class Worker(object):
     """Constructs the desired deep q learning network"""
     def __init__(self):
         self.construct_q_network()
@@ -78,33 +87,25 @@ class DeepQ:
     def construct_q_network(self):
         # Uses the network architecture found in DeepMind paper
         self.model = Sequential()
-        self.model.add(Convolution2D(32, 8, 8, subsample=(4, 4), input_shape=(84, 84, NUM_FRAMES)))
-        self.model.add(Activation('relu'))
-        self.model.add(Convolution2D(64, 4, 4, subsample=(2, 2)))
-        self.model.add(Activation('relu'))
-        self.model.add(Convolution2D(64, 3, 3))
-        self.model.add(Activation('relu'))
-        self.model.add(Flatten())
-        self.model.add(Dense(512))
-        self.model.add(Activation('relu'))
-        self.model.add(Dense(NUM_ACTIONS))
-        self.model.compile(loss='mse', optimizer=Adam(lr=0.00001))
+        input_layer = TimeDistributed(Input(shape = (SEQUENCE_LENGTH, 84, 84, NUM_FRAMES)))
+        conv1 = TimeDistributed(Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu'))(input_layer)
+        conv2 = TimeDistributed(Convolution2D(64, 4, 4, subsample=(2, 2), activation='relu'))(conv1)
+        conv3 = TimeDistributed(Convolution2D(64, 3, 3, activation = 'relu'))(conv2)
+        flatten = TimeDistributed(Flatten())(conv3)
+        fc = TimeDistributed(Dense(256, activation = 'relu'))(flatten)
+        lstm = LSTM(256, return_sequences=True)(fc)
+        action = TimeDistributed(Dense(NUM_ACTIONS, name='action', activation = 'softmax'))(lstm)
+        value = TimeDistributed(Dense(1, name='value'))(lstm)
 
-        # Creates a target network as described in DeepMind paper
-        self.target_model = Sequential()
-        self.target_model.add(Convolution2D(32, 8, 8, subsample=(4, 4), input_shape=(84, 84, NUM_FRAMES)))
-        self.target_model.add(Activation('relu'))
-        self.target_model.add(Convolution2D(64, 4, 4, subsample=(2, 2)))
-        self.target_model.add(Activation('relu'))
-        self.target_model.add(Convolution2D(64, 3, 3))
-        self.target_model.add(Activation('relu'))
-        self.target_model.add(Flatten())
-        self.target_model.add(Dense(512))
-        self.model.add(Activation('relu'))
-        self.target_model.add(Dense(NUM_ACTIONS))
-        self.target_model.compile(loss='mse', optimizer=Adam(lr=0.00001))
-        self.target_model.set_weights(self.model.get_weights())
+        def policy_loss(prob, y_pred):
+            entropy = -1 * np.sum(y_pred * np.log(y_pred))
 
+
+        self.model = Model(input=[input_layer], output=[action, value])
+        self.model.compile(loss={'action': policy_loss, 'value': value_loss}, optimizer=Adam(lr=0.000001))
+
+        self.target_model = Model(input=[input_layer], output=[action, value])
+        self.target_model.compile(loss='mse', optimizer=Adam(lr=0.000001))
         print "Successfully constructed networks."
 
     def predict_movement(self, data, epsilon):
@@ -141,7 +142,8 @@ class DeepQ:
         print "Successfully saved network."
 
     def load_network(self, path):
-        self.model = load_model(path)
+        self.model.load_weights(path)
+        self.target_model.load_weights(path)
         print "Succesfully loaded network."
 
     def target_train(self):
@@ -225,29 +227,26 @@ class SpaceInvader:
             # Save the network every 100000 iterations
             if observation_num % 10000 == 9999:
                 print "Saving Network"
-                self.deep_q.save_network("saved.h5")
+                self.deep_q.save_network("duel_saved.h5")
 
             alive_frame += 1
             observation_num += 1
 
-    def simulate(self, path = "", save = False):
+    def simulate(self):
         """Simulates game"""
         done = False
-        tot_award = 0
-        if save:
-            self.env.monitor.start(path, force=True)
         self.env.reset()
-        self.env.render()
+        tot_award = 0
+        # self.env.render()
         while not done:
             state = self.convert_process_buffer()
-            predict_movement = self.deep_q.predict_movement(state, 0)[0]
+            predict_movement = self.deep_q.predict_movement(state, 0.0)[0]
             self.env.render()
             observation, reward, done, _ = self.env.step(predict_movement)
             tot_award += reward
             self.process_buffer.append(observation)
             self.process_buffer = self.process_buffer[1:]
-        if save:
-            self.env.monitor.close()
+        state = self.convert_process_buffer()
         print tot_award
 
     def calculate_mean(self, num_samples = 100):
@@ -267,10 +266,11 @@ class SpaceInvader:
             reward_list.append(tot_award)
         return np.mean(reward_list), np.std(reward_list)
 
+
 if __name__ == "__main__":
     print "Haven't finished implementing yet...'"
     space_invader = SpaceInvader()
-    space_invader.load_network("saved.h5")
-    # print space_invader.calculate_mean()
-    space_invader.simulate("deep_q_video", True)
+    space_invader.load_network("duel_saved.h5")
+    print space_invader.calculate_mean()
+    # space_invader.simulate()
     # space_invader.train(TOT_FRAME)
