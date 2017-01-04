@@ -1,5 +1,9 @@
 import gym
 import cv2
+from replay_buffer import ReplayBuffer
+import numpy as np
+from duel_Q import DuelQ
+from deep_Q import DeepQ
 
 # List of hyper-parameters and constants
 BUFFER_SIZE = 100000
@@ -20,10 +24,10 @@ class SpaceInvader(object):
         self.replay_buffer = ReplayBuffer(BUFFER_SIZE)
 
         # Construct appropriate network based on flags
-        if mode == "DEEPQ":
+        if mode == "DDQN":
             self.deep_q = DeepQ()
-        elif mode == "DUELQ":
-            self.duel_q = DuelQ()
+        elif mode == "DQN":
+            self.deep_q = DuelQ()
 
         # A buffer that keeps the last 3 images
         self.process_buffer = []
@@ -115,10 +119,10 @@ class SpaceInvader(object):
             self.process_buffer = self.process_buffer[1:]
         if save:
             self.env.monitor.close()
-        print tot_award
 
     def calculate_mean(self, num_samples = 100):
         reward_list = []
+        print "Printing scores of each trial"
         for i in xrange(num_samples):
             done = False
             tot_award = 0
