@@ -38,7 +38,7 @@ class ReplayBuffer:
 
         # Maps each experience in batch in batches of states, actions, rewards
         # and new states
-        s_batch, a_batch, r_batch, d_batch, s2_batch = map(np.array, zip(*batch))
+        s_batch, a_batch, r_batch, d_batch, s2_batch = list(map(np.array, list(zip(*batch))))
 
         return s_batch, a_batch, r_batch, d_batch, s2_batch
 

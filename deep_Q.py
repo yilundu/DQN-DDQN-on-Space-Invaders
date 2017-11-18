@@ -58,7 +58,7 @@ class DeepQ(object):
         self.target_model.compile(loss='mse', optimizer=Adam(lr=0.00001))
         self.target_model.set_weights(self.model.get_weights())
 
-        print "Successfully constructed networks."
+        print("Successfully constructed networks.")
 
     def predict_movement(self, data, epsilon):
         """Predict movement of game controler where is epsilon
@@ -75,7 +75,7 @@ class DeepQ(object):
         batch_size = s_batch.shape[0]
         targets = np.zeros((batch_size, NUM_ACTIONS))
 
-        for i in xrange(batch_size):
+        for i in range(batch_size):
             targets[i] = self.model.predict(s_batch[i].reshape(1, 84, 84, NUM_FRAMES), batch_size = 1)
             fut_action = self.target_model.predict(s2_batch[i].reshape(1, 84, 84, NUM_FRAMES), batch_size = 1)
             targets[i, a_batch[i]] = r_batch[i]
@@ -86,26 +86,26 @@ class DeepQ(object):
 
         # Print the loss every 10 iterations.
         if observation_num % 10 == 0:
-            print "We had a loss equal to ", loss
+            print("We had a loss equal to ", loss)
 
     def save_network(self, path):
         # Saves model at specified path as h5 file
         self.model.save(path)
-        print "Successfully saved network."
+        print("Successfully saved network.")
 
     def load_network(self, path):
         self.model = load_model(path)
-        print "Succesfully loaded network."
+        print("Succesfully loaded network.")
 
     def target_train(self):
         model_weights = self.model.get_weights()
         target_model_weights = self.target_model.get_weights()
-        for i in xrange(len(model_weights)):
+        for i in range(len(model_weights)):
             target_model_weights[i] = TAU * model_weights[i] + (1 - TAU) * target_model_weights[i]
         self.target_model.set_weights(target_model_weights)
 
 if __name__ == "__main__":
-    print "Haven't finished implementing yet...'"
+    print("Haven't finished implementing yet...'")
     space_invader = SpaceInvader()
     space_invader.load_network("saved.h5")
     # print space_invader.calculate_mean()

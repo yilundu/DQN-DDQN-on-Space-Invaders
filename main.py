@@ -15,7 +15,7 @@ parser.add_argument("-x", "--statistics", action='store_true', help="Specify to 
 parser.add_argument("-v", "--view", action='store_true', help="Display the network playing a game of space-invaders. Is overriden by the -s command", required=False)
 
 args = parser.parse_args()
-print args
+print(args)
 
 game_instance = SpaceInvader(args.network)
 
@@ -27,8 +27,8 @@ if args.mode == "train":
 
 if args.statistics:
     stat = game_instance.calculate_mean()
-    print "Game Statistics"
-    print stat
+    print("Game Statistics")
+    print(stat)
 
 if args.save:
     game_instance.simulate(path=args.save, save=True)

@@ -43,8 +43,8 @@ class SpaceInvader(object):
     def convert_process_buffer(self):
         """Converts the list of NUM_FRAMES images in the process buffer
         into one training sample"""
-        black_buffer = map(lambda x: cv2.resize(cv2.cvtColor(x, cv2.COLOR_RGB2GRAY), (84, 90)), self.process_buffer)
-        black_buffer = map(lambda x: x[1:85, :, np.newaxis], black_buffer)
+        black_buffer = [cv2.resize(cv2.cvtColor(x, cv2.COLOR_RGB2GRAY), (84, 90)) for x in self.process_buffer]
+        black_buffer = [x[1:85, :, np.newaxis] for x in black_buffer]
         return np.concatenate(black_buffer, axis=2)
 
     def train(self, num_frames):
@@ -56,7 +56,7 @@ class SpaceInvader(object):
 
         while observation_num < num_frames:
             if observation_num % 1000 == 999:
-                print "Executing loop %d" %observation_num
+                print(("Executing loop %d" %observation_num))
 
             # Slowly decay the learning rate
             if epsilon > FINAL_EPSILON:
@@ -68,18 +68,18 @@ class SpaceInvader(object):
             predict_movement, predict_q_value = self.deep_q.predict_movement(curr_state, epsilon)
 
             reward, done = 0, False
-            for i in xrange(NUM_FRAMES):
+            for i in range(NUM_FRAMES):
                 temp_observation, temp_reward, temp_done, _ = self.env.step(predict_movement)
                 reward += temp_reward
                 self.process_buffer.append(temp_observation)
                 done = done | temp_done
 
             if observation_num % 10 == 0:
-                print "We predicted a q value of ", predict_q_value
+                print("We predicted a q value of ", predict_q_value)
 
             if done:
-                print "Lived with maximum time ", alive_frame
-                print "Earned a total of reward equal to ", total_reward
+                print("Lived with maximum time ", alive_frame)
+                print("Earned a total of reward equal to ", total_reward)
                 self.env.reset()
                 alive_frame = 0
                 total_reward = 0
@@ -95,7 +95,7 @@ class SpaceInvader(object):
 
             # Save the network every 100000 iterations
             if observation_num % 10000 == 9999:
-                print "Saving Network"
+                print("Saving Network")
                 self.deep_q.save_network("saved.h5")
 
             alive_frame += 1
@@ -122,8 +122,8 @@ class SpaceInvader(object):
 
     def calculate_mean(self, num_samples = 100):
         reward_list = []
-        print "Printing scores of each trial"
-        for i in xrange(num_samples):
+        print("Printing scores of each trial")
+        for i in range(num_samples):
             done = False
             tot_award = 0
             self.env.reset()
@@ -134,7 +134,7 @@ class SpaceInvader(object):
                 tot_award += reward
                 self.process_buffer.append(observation)
                 self.process_buffer = self.process_buffer[1:]
-            print tot_award
+            print(tot_award)
             reward_list.append(tot_award)
         return np.mean(reward_list), np.std(reward_list)
 
