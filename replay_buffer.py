@@ -1,4 +1,6 @@
 from collections import deque
+import random
+import numpy as np
 
 class ReplayBuffer:
     """Constructs a buffer object that stores the past moves
